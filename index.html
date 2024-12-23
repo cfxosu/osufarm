@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>osu!farm - Find Your Next PP Maps</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        * {
+            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+        }
+        .accuracy-cell {
+            font-size: 1.1em;
+            text-align: right;
+            padding-right: 20px;
+            color: #e0e0e0;
+        }
+
+        /* Filter Styles */
+        .filters {
+            background: #222;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        /* Search Box */
+        .search-group {
+            grid-column: 1 / -1;  /* Spans full width */
+            margin-bottom: 15px;
+        }
+
+        #songFilter {
+            width: 100%;
+            padding: 10px;
+            background: #1a1a1a;
+            border: 1px solid #444;
+            color: #fff;
+            border-radius: 4px;
+        }
+
+        /* Filter Groups Layout */
+        .filter-row {
+            display: flex;
+            gap: 10px;  /* Reduced gap for better fit */
+            margin-bottom: 15px;
+        }
+
+        /* Make each filter group take equal width */
+        .filter-group {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            padding: 15px;
+            flex: 1;
+        }
+
+        .filter-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #888;
+            font-size: 0.85em;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Range Inputs */
+        .range-inputs {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Adjust range inputs for smaller width */
+        .range-inputs input[type="number"] {
+            width: calc(50% - 8px);
+            padding: 6px;  /* Slightly smaller padding */
+            background: #1a1a1a;
+            border: 1px solid #444;
+            color: #fff;
+            border-radius: 4px;
+            font-size: 0.85em;  /* Slightly smaller font */
+        }
+
+        .range-separator {
+            color: #888;
+        }
+
+        /* Mod Buttons */
+        .mod-filters {
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+        }
+
+        .mod-button {
+            padding: 4px 8px;
+            font-size: 0.85em;
+            border: 2px solid transparent;  /* Add border for outline */
+            transition: all 0.2s ease;
+        }
+
+        /* Default mod colors */
+        .mod-button[data-mod="DT"] {
+            border-color: #fff;
+        }
+
+        .mod-button[data-mod="HD"] {
+            border-color: #fff;
+        }
+
+        .mod-button[data-mod="HR"] {
+            border-color: #fff;
+        }
+
+        .mod-button[data-mod="FL"] {
+            border-color: #fff;
+        }
+
+        /* When active/excluded/opposite, remove the border */
+        .mod-button.active,
+        .mod-button.excluded,
+        .mod-button.opposite {
+            border-color: transparent;
+        }
+
+        /* Remove number spinners */
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
+
+        /* Update creator-info position to top left */
+        .creator-info {
+            position: fixed;
+            top: 10px;
+            left: 20px;
+            text-align: left;
+            color: #888;
+            font-size: 0.9em;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        /* Support info at top right */
+        .support-info {
+            position: fixed;
+            top: 10px;
+            right: 20px;
+            text-align: right;
+            color: #888;
+            font-size: 0.9em;
+            z-index: 1000;
+        }
+
+        .donate-text {
+            color: #aaa;
+            font-size: 0.85em;
+            cursor: pointer;
+            transition: color 0.2s;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .donate-text:hover {
+            color: #e0e0e0;
+        }
+
+        /* Style for the social links */
+        .social-links {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .social-link, .osu-profile {
+            color: #888;  /* Grey color */
+            text-decoration: none;
+            font-size: 0.85em;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            transition: all 0.2s ease;  /* Smooth transition for hover */
+        }
+
+        .social-icon {
+            width: 16px;
+            height: 16px;
+            fill: currentColor;
+        }
+
+        /* Add osu logo style */
+        .osu-icon {
+            width: 16px;
+            height: 16px;
+            fill: #888;  /* Changed from purple to grey */
+            transition: fill 0.2s ease;  /* Smooth transition for hover */
+        }
+
+        .osu-profile {
+            color: #888;  /* Changed from purple to grey */
+        }
+
+        .osu-profile:hover {
+            color: #e0e0e0;  /* Lighter grey on hover */
+            opacity: 1;  /* Remove opacity change */
+        }
+
+        .osu-profile:hover .osu-icon {
+            fill: #e0e0e0;  /* Icon changes color on hover */
+        }
+
+        .social-link:hover {
+            color: #e0e0e0;  /* Lighter grey on hover */
+            transform: translateY(-1px);  /* Slight upward movement */
+        }
+
+        .social-link:hover .social-icon {
+            fill: #e0e0e0;  /* Icon changes color on hover */
+        }
+
+        .creator {
+            margin-right: 5px;
+        }
+
+        /* Add relative positioning to container */
+        .container {
+            position: relative;
+            z-index: 1;  /* Add this to ensure content is above snowflakes */
+        }
+
+        /* Add or update subtitle style */
+        .subtitle {
+            color: #888;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+
+        .subtitle::before {
+            display: none;  /* Remove the bullet point */
+        }
+
+        /* Add these new styles for map row animations */
+        #mapsTable tbody tr {
+            transition: transform 0.2s ease, background-color 0.2s ease;
+            cursor: pointer;
+        }
+
+        #mapsTable tbody tr:hover {
+            transform: translateX(10px);
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        /* Optional: Add a subtle shadow effect on hover */
+        #mapsTable tbody tr:hover td {
+            position: relative;
+        }
+
+        #mapsTable tbody tr:hover td:first-child {
+            box-shadow: -5px 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        #mapsTable tbody tr:hover td:last-child {
+            box-shadow: 5px 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Smooth transition for the thumbnail */
+        .map-thumbnail {
+            transition: transform 0.2s ease;
+        }
+
+        #mapsTable tbody tr:hover .map-thumbnail {
+            transform: scale(1.05);
+        }
+
+        /* Add styles for the row number column */
+        .row-number {
+            width: 40px;
+            text-align: center;
+            color: #e0e0e0;
+            font-size: 0.9em;
+        }
+
+        /* Optional: Add special styling for top 10 numbers */
+        tr:nth-child(-n+10) .row-number {
+            color: #e0e0e0;
+            font-weight: bold;
+        }
+
+        /* Make the header "#" white too */
+        #mapsTable thead .row-number {
+            color: #e0e0e0;
+        }
+
+        /* Update styles for beatmap links */
+        .map-info a {
+            color: #e0e0e0;  /* White by default */
+            text-decoration: none;
+            transition: color 0.2s ease;  /* Smooth color transition */
+        }
+
+        .map-info a:hover {
+            color: #66ccff;  /* Light blue on hover */
+        }
+
+        /* Style for the download button */
+        .download-button {
+            background: transparent;
+            border: none;
+            color: #e0e0e0;
+            cursor: pointer;
+            padding: 5px;
+            transition: opacity 0.2s ease;
+        }
+
+        .download-button:hover {
+            opacity: 0.7;
+        }
+
+        /* Style for the download icon */
+        .download-icon {
+            width: 20px;
+            height: 20px;
+            fill: currentColor;
+        }
+
+        /* Update map info styles to align items */
+        .map-info {
+            display: flex;
+            flex-direction: column;  /* Stack items vertically */
+            gap: 2px;  /* Tiny gap between name and download */
+        }
+
+        .map-name {
+            /* Style for the map name container */
+            margin-bottom: 1px;
+        }
+
+        .download-button {
+            background: transparent;
+            border: none;
+            color: #e0e0e0;
+            cursor: pointer;
+            padding: 0;  /* Remove padding */
+            transition: opacity 0.2s ease;
+            display: flex;
+            align-items: center;
+            font-size: 0.7em;  /* Make text smaller */
+        }
+
+        .download-icon {
+            width: 10px;  /* Make icon even smaller */
+            height: 10px;
+            fill: currentColor;
+            margin-right: 2px;  /* Small space between icon and text */
+        }
+
+        /* Keep osu!direct text white always */
+        .download-button {
+            color: #e0e0e0 !important;  /* Force white color */
+        }
+
+        /* Style for mod boxes - update to match map type style */
+        .mod-box {
+            display: inline-block;
+            padding: 3px 12px;  /* Increased padding */
+            border-radius: 4px;  /* Slightly larger border radius */
+            font-size: 0.85em;  /* Increased font size */
+            text-transform: uppercase;
+            font-weight: 400;
+            letter-spacing: 0.2px;
+            margin-right: 8px;  /* Slightly more space between mods */
+        }
+
+        /* Individual mod colors with new style */
+        .mod-DT, .mod-NC {
+            background: rgba(196, 139, 255, 0.12);  /* Purple tint */
+            color: #c48bff;
+            border: 1px solid rgba(196, 139, 255, 0.3);
+        }
+
+        .mod-HD {
+            background: rgba(255, 204, 33, 0.12);  /* Yellow tint */
+            color: #ffcc21;
+            border: 1px solid rgba(255, 204, 33, 0.3);
+        }
+
+        .mod-HR {
+            background: rgba(255, 0, 0, 0.12);  /* Red tint */
+            color: #ff0000;
+            border: 1px solid rgba(255, 0, 0, 0.3);
+        }
+
+        .mod-FL {
+            background: rgba(0, 0, 0, 0.4);  /* Reduced opacity black background */
+            color: rgba(224, 224, 224, 0.9);  /* Slightly softer white text */
+            border: 1px solid rgba(224, 224, 224, 0.4);  /* Reduced opacity white border */
+        }
+
+        .mod-EZ {
+            background: rgba(88, 217, 88, 0.12);  /* Green tint */
+            color: #58d958;
+            border: 1px solid rgba(88, 217, 88, 0.3);
+        }
+
+        .mod-HT {
+            background: rgba(88, 217, 88, 0.12);  /* Green tint */
+            color: #58d958;
+            border: 1px solid rgba(88, 217, 88, 0.3);
+        }
+
+        /* Better table styling */
+        #mapsTable {
+            border-collapse: separate;
+            border-spacing: 0 8px;  /* Space between rows */
+        }
+
+        #mapsTable tbody tr {
+            background: rgba(255, 255, 255, 0.03);  /* Subtle row background */
+        }
+
+        #mapsTable th {
+            padding: 12px;
+            font-weight: 500;
+            color: #888;  /* Softer header text */
+            border-bottom: 2px solid #333;
+        }
+
+        #mapsTable td {
+            padding: 12px;
+        }
+
+        /* Style PP and accuracy cells */
+        .pp-cell {
+            font-weight: bold;
+            color: #e0e0e0;
+        }
+
+        .accuracy-cell {
+            color: #e0e0e0;
+        }
+
+        /* Loading animation for images */
+        .map-thumbnail {
+            transition: opacity 0.3s ease;
+        }
+
+        .map-thumbnail[loading] {
+            opacity: 0.5;
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #1a1a1a;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #444;
+        }
+        }
+
+        .map-name a {
+            position: relative;
+        }
+
+        /* Add these styles for mod filter buttons */
+        .mod-button {
+            background: rgba(128, 128, 128, 0.12);  /* Default gray background */
+            color: #808080;  /* Default gray text */
+            border: 1px solid rgba(128, 128, 128, 0.3);  /* Default gray border */
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        /* Active states with colors */
+        .mod-button[data-mod="DT"].active {
+            background: rgba(196, 139, 255, 0.12);
+            color: #c48bff;
+            border: 1px solid rgba(196, 139, 255, 0.3);
+        }
+
+        .mod-button[data-mod="HD"].active {
+            background: rgba(255, 204, 33, 0.12);
+            color: #ffcc21;
+            border: 1px solid rgba(255, 204, 33, 0.3);
+        }
+
+        .mod-button[data-mod="HR"].active {
+            background: rgba(255, 0, 0, 0.12);
+            color: #ff0000;
+            border: 1px solid rgba(255, 0, 0, 0.3);
+        }
+
+        .mod-button[data-mod="FL"].active {
+            background: rgba(0, 0, 0, 0.4);
+            color: rgba(224, 224, 224, 0.9);
+            border: 1px solid rgba(224, 224, 224, 0.4);
+        }
+
+        /* Hover effect */
+        .mod-button:hover {
+            opacity: 0.8;
+        }
+
+        .loading-indicator {
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            margin: 0 auto;
+            border: 3px solid #333;
+            border-radius: 50%;
+            border-top-color: #9370DB;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @media screen and (max-width: 1200px) {
+            body {
+                font-size: 14px;
+            }
+        }
+
+        @media screen and (max-width: 768px) {
+            body {
+                font-size: 12px;
+            }
+        }
+
+        /* Update map type styles for an even smaller look */
+        .map-type {
+            display: inline-block;
+            padding: 1px 4px;  /* Even smaller padding */
+            border-radius: 2px;  /* Smaller border radius */
+            font-size: 0.6em;  /* Smaller font size */
+            text-transform: uppercase;
+            font-weight: 400;
+            letter-spacing: 0.2px;  /* Reduced letter spacing */
+        }
+
+        /* Keep the same color scheme but adjust opacity */
+        .map-type.aim {
+            background: rgba(0, 206, 209, 0.12);
+            color: #00CED1;
+            border: 1px solid rgba(0, 206, 209, 0.25);
+        }
+
+        .map-type.tap {
+            background: rgba(68, 170, 221, 0.12);
+            color: #44aadd;
+            border: 1px solid rgba(68, 170, 221, 0.25);
+        }
+
+        .map-type.hybrid {
+            background: rgba(147, 112, 219, 0.12);  /* Softer purple tint */
+            color: #9370db;  /* Medium purple */
+            border: 1px solid rgba(147, 112, 219, 0.25);
+        }
+
+        .map-type.unknown {
+            background: rgba(102, 102, 102, 0.12);
+            color: #666666;
+            border: 1px solid rgba(102, 102, 102, 0.25);
+        }
+
+        /* Update map-info to allow inline elements */
+        .map-name {
+            display: flex;
+            flex-direction: row;  /* Change to row for horizontal layout */
+            align-items: flex-start;
+            width: 100%;  /* Ensure full width */
+        }
+
+        .map-name a {
+            text-align: left;
+            flex: 1;  /* Allow link to take up available space */
+        }
+
+        /* Update map-info styles */
+        .map-info {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            width: 100%;  /* Ensure full width */
+        }
+
+        .map-details {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        /* Update map type styles */
+        .map-type {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.7em;
+            text-transform: uppercase;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+        }
+
+        /* Update body background with a small gradient at the top */
+        body {
+            background: linear-gradient(
+                to bottom,
+                rgba(46, 204, 113, 0.4) 0%,    /* Increased from 0.1 to 0.4 (40% opacity) */
+                rgba(46, 204, 113, 0) 100px    /* Fade out after 100px */
+            ), #121212;  /* Base background color */
+            position: relative;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        /* Update HT mod style to match EZ green color */
+        .mod-HT {
+            background: rgba(88, 217, 88, 0.12);  /* Green tint */
+            color: #58d958;
+            border: 1px solid rgba(88, 217, 88, 0.3);
+        }
+
+        /* Update HT mod filter button active state to match */
+        .mod-button[data-mod="HT"].active {
+            background: rgba(88, 217, 88, 0.12);
+            color: #58d958;
+            border: 1px solid rgba(88, 217, 88, 0.3);
+        }
+
+        /* Add cursor pointer to table rows */
+        #mapsTable tbody tr {
+            background: rgba(255, 255, 255, 0.03);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;  /* For glow positioning */
+        }
+
+        #mapsTable tbody tr:hover {
+            background: rgba(255, 255, 255, 0.05);
+            box-shadow: -15px 0 20px -5px rgba(46, 204, 113, 0.3),
+                        15px 0 20px -5px rgba(46, 204, 113, 0.3);
+            transform: translateX(0);  /* Remove the existing transform */
+        }
+
+        /* Remove the individual cell shadows */
+        #mapsTable tbody tr:hover td:first-child,
+        #mapsTable tbody tr:hover td:last-child,
+        #mapsTable tbody tr:hover .map-cell {
+            box-shadow: none;
+        }
+
+        /* Add styles for live indicator */
+        .live-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            background-color: #2ecc71;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.7);
+            }
+            
+            70% {
+                transform: scale(1);
+                box-shadow: 0 0 0 6px rgba(46, 204, 113, 0);
+            }
+            
+            100% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(46, 204, 113, 0);
+            }
+        }
+
+        /* Update text colors to softer white */
+        .map-info a {
+            color: #e0e0e0;  /* Changed from #fff */
+        }
+
+        .row-number {
+            color: #e0e0e0;  /* Changed from #fff */
+        }
+
+        tr:nth-child(-n+10) .row-number {
+            color: #e0e0e0;  /* Changed from #fff */
+        }
+
+        #mapsTable thead .row-number {
+            color: #e0e0e0;  /* Changed from #fff */
+        }
+
+        .download-button {
+            color: #e0e0e0 !important;  /* Changed from #fff */
+        }
+
+        .pp-cell {
+            color: #e0e0e0;  /* Changed from #fff */
+        }
+
+        .accuracy-cell {
+            color: #e0e0e0;  /* Changed from #fff */
+        }
+
+        /* Update header text with just glow effect */
+        h1 {
+            color: #ffffff !important;  /* Pure white */
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.7),
+                         0 0 20px rgba(255, 255, 255, 0.5),
+                         0 0 30px rgba(255, 255, 255, 0.3);
+            animation: glow 3s ease-in-out infinite alternate;
+        }
+
+        @keyframes glow {
+            from {
+                text-shadow: 0 0 10px rgba(255, 255, 255, 0.7),
+                             0 0 20px rgba(255, 255, 255, 0.5),
+                             0 0 30px rgba(255, 255, 255, 0.3);
+            }
+            to {
+                text-shadow: 0 0 20px rgba(255, 255, 255, 0.8),
+                             0 0 30px rgba(255, 255, 255, 0.6),
+                             0 0 40px rgba(255, 255, 255, 0.4);
+            }
+        }
+
+        /* Update FL mod text */
+        .mod-FL {
+            background: rgba(0, 0, 0, 0.4);
+            color: rgba(224, 224, 224, 0.9);  /* Changed from rgba(255, 255, 255, 0.9) */
+            border: 1px solid rgba(224, 224, 224, 0.4);  /* Changed from rgba(255, 255, 255, 0.4) */
+        }
+
+        .mod-button[data-mod="FL"].active {
+            background: rgba(0, 0, 0, 0.4);
+            color: rgba(224, 224, 224, 0.9);  /* Changed from rgba(255, 255, 255, 0.9) */
+            border: 1px solid rgba(224, 224, 224, 0.4);  /* Changed from rgba(255, 255, 255, 0.4) */
+        }
+
+        /* Update map cell hover effect */
+        #mapsTable tbody tr:hover .map-cell {
+            box-shadow: -10px 0 15px -5px rgba(46, 204, 113, 0.3),
+                        10px 0 15px -5px rgba(46, 204, 113, 0.3);
+        }
+
+        /* Update existing hover styles */
+        #mapsTable tbody tr:hover td:first-child {
+            box-shadow: -10px 0 15px -5px rgba(46, 204, 113, 0.3);  /* Changed from rgba(0, 0, 0, 0.1) */
+        }
+
+        #mapsTable tbody tr:hover td:last-child {
+            box-shadow: 10px 0 15px -5px rgba(46, 204, 113, 0.3);  /* Changed from rgba(0, 0, 0, 0.1) */
+        }
+
+        /* Add glow effect to table container */
+        .table-container {
+            position: relative;
+            box-shadow: -20px 0 30px -10px rgba(46, 204, 113, 0.1),
+                        20px 0 30px -10px rgba(46, 204, 113, 0.1);
+            padding: 0 20px;  /* Add some padding for the glow to be visible */
+            border-radius: 16px;  /* Added rounded corners */
+            overflow: hidden;  /* Ensure content respects rounded corners */
+        }
+
+        /* Remove the individual row glow effects */
+        #mapsTable tbody tr:hover {
+            background: rgba(255, 255, 255, 0.05);
+            transform: translateX(0);
+        }
+
+        #mapsTable tbody tr:hover td:first-child,
+        #mapsTable tbody tr:hover td:last-child,
+        #mapsTable tbody tr:hover .map-cell {
+            box-shadow: none;
+        }
+
+        /* Update table rows to match container roundness */
+        #mapsTable {
+            border-collapse: separate;
+            border-spacing: 0 8px;
+        }
+
+        #mapsTable tbody tr {
+            border-radius: 12px;  /* Slightly smaller than container */
+            overflow: hidden;
+        }
+
+        #mapsTable tbody tr td:first-child {
+            border-top-left-radius: 12px;
+            border-bottom-left-radius: 12px;
+        }
+
+        #mapsTable tbody tr td:last-child {
+            border-top-right-radius: 12px;
+            border-bottom-right-radius: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Creator info at left -->
+        <div class="creator-info">
+            <div class="creator">
+                Created by cfx
+            </div>
+            <div class="social-links">
+                <a href="https://osu.ppy.sh/users/15903077" target="_blank" class="osu-profile">
+                    <svg class="osu-icon" viewBox="0 0 24 24">
+                        <path d="M12 24C5.373 24 0 18.627 0 12S5.373 0 12 0s12 5.373 12 12-5.373 12-12 12zm0-2.4a9.6 9.6 0 1 0 0-19.2 9.6 9.6 0 0 0 0 19.2z M8.4 12a3.6 3.6 0 1 1 7.2 0 3.6 3.6 0 0 1-7.2 0z"/>
+                    </svg>
+                    osu!
+                </a>
+                <a href="https://www.youtube.com/@cfxosu" target="_blank" class="social-link">
+                    <svg class="social-icon" viewBox="0 0 24 24">
+                        <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/>
+                    </svg>
+                    YouTube
+                </a>
+                <a href="https://discord.com/invite/bT7hySK2te" target="_blank" class="social-link">
+                    <svg class="social-icon" viewBox="0 0 24 24">
+                        <path d="M20.317 4.492c-1.53-.69-3.17-1.2-4.885-1.49a.075.075 0 0 0-.079.036c-.21.369-.444.85-.608 1.23a18.566 18.566 0 0 0-5.487 0 12.36 12.36 0 0 0-.617-1.23A.077.077 0 0 0 8.562 3c-1.714.29-3.354.8-4.885 1.491a.07.07 0 0 0-.032.027C.533 9.093-.32 13.555.099 17.961a.08.08 0 0 0 .031.055 20.03 20.03 0 0 0 5.993 2.98.078.078 0 0 0 .084-.026 13.83 13.83 0 0 0 1.226-1.963.074.074 0 0 0-.041-.104 13.175 13.175 0 0 1-1.872-.878.075.075 0 0 1-.008-.125c.126-.093.252-.19.372-.287a.075.075 0 0 1 .078-.01c3.927 1.764 8.18 1.764 12.061 0a.075.075 0 0 1 .079.009c.12.098.245.195.372.288a.075.075 0 0 1-.006.125c-.598.344-1.22.635-1.873.877a.075.075 0 0 0-.041.105c.36.687.772 1.341 1.225 1.962a.077.077 0 0 0 .084.028 19.963 19.963 0 0 0 6.002-2.981.076.076 0 0 0 .032-.054c.5-5.094-.838-9.52-3.549-13.442a.06.06 0 0 0-.031-.028z"/>
+                    </svg>
+                    Discord
+                </a>
+                <a href="https://www.twitch.tv/cfxosu" target="_blank" class="social-link">
+                    <svg class="social-icon" viewBox="0 0 24 24">
+                        <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z"/>
+                    </svg>
+                    Twitch
+                </a>
+            </div>
+        </div>
+
+        <!-- Support info at right -->
+        <div class="support-info">
+            <a href="https://streamelements.com/cfxosu/tip" target="_blank" class="donate-text">
+                Support the development
+            </a>
+        </div>
+
+        <header>
+            <h1 style="color: #ffffff;">osu!farm</h1>
+            <p class="subtitle">
+                <span class="live-indicator">
+                    <span class="live-dot"></span>
+                    10,000 players tracked
+                </span>
+            </p>
+        </header>
+
+        <div class="filters">
+            <div class="filter-group search-group">
+                <label>Search</label>
+                <input type="text" id="songFilter" placeholder="Enter song or artist name...">
+            </div>
+            
+            <div class="filter-row">
+                <div class="filter-group">
+                    <label>Mods</label>
+                    <div class="mod-filters">
+                        <button class="mod-button" data-mod="DT">DT</button>
+                        <button class="mod-button" data-mod="HD">HD</button>
+                        <button class="mod-button" data-mod="HR">HR</button>
+                        <button class="mod-button" data-mod="FL">FL</button>
+                    </div>
+                </div>
+
+                <div class="filter-group">
+                    <label>PP Range</label>
+                    <div class="range-inputs">
+                        <input type="number" id="ppMinFilter" placeholder="Min">
+                        <span class="range-separator">-</span>
+                        <input type="number" id="ppMaxFilter" placeholder="Max">
+                    </div>
+                </div>
+
+                <div class="filter-group">
+                    <label>BPM Range</label>
+                    <div class="range-inputs">
+                        <input type="number" id="bpmMinFilter" placeholder="Min">
+                        <span class="range-separator">-</span>
+                        <input type="number" id="bpmMaxFilter" placeholder="Max">
+                    </div>
+                </div>
+
+                <div class="filter-group">
+                    <label>Length (seconds)</label>
+                    <div class="range-inputs">
+                        <input type="number" id="lengthMinFilter" placeholder="Min">
+                        <span class="range-separator">-</span>
+                        <input type="number" id="lengthMaxFilter" placeholder="Max">
+                    </div>
+                </div>
+
+                <div class="filter-group">
+                    <label>Accuracy (%)</label>
+                    <div class="range-inputs">
+                        <input type="number" id="accMinFilter" placeholder="Min" min="0" max="100" step="0.01">
+                        <span class="range-separator">-</span>
+                        <input type="number" id="accMaxFilter" placeholder="Max" min="0" max="100" step="0.01">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <table id="mapsTable">
+                <thead>
+                    <tr>
+                        <th class="row-number">#</th>
+                        <th>Map</th>
+                        <th>PP</th>
+                        <th>Mods</th>
+                        <th>Length</th>
+                        <th>BPM</th>
+                        <th>Accuracy</th>
+                        <th>Farmability</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for map in maps %}
+                    <tr>
+                        <td class="row-number">{{ loop.index }}</td>
+                        <td class="map-cell">
+                            <img src="{{ map.thumbnail }}" alt="Beatmap Thumbnail" class="map-thumbnail">
+                            <div class="map-info">
+                                <div class="map-name">
+                                    <a href="https://osu.ppy.sh/beatmaps/{{ map.beatmap_id }}" target="_blank">
+                                        {{ map.map_name }}
+                                    </a>
+                                    <span class="map-type {{ map.map_type }}">{{ map.map_type }}</span>
+                                </div>
+                                <a href="osu://b/{{ map.beatmap_id }}" class="download-button">
+                                    <svg class="download-icon" viewBox="0 0 24 24">
+                                        <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+                                    </svg>
+                                    osu!direct
+                                </a>
+                            </div>
+                        </td>
+                        <td class="pp-cell">{{ map.average_pp|round|int }}pp</td>
+                        <td>
+                            <div class="mod-container">
+                                {% for mod in map.mods.split() %}
+                                    <span class="mod-box mod-{{ mod }}">{{ mod }}</span>
+                                {% endfor %}
+                            </div>
+                        </td>
+                        <td class="length-cell">{{ map.formatted_length }}</td>
+                        <td class="bpm-cell">{{ map.bpm }}</td>
+                        <td class="accuracy-cell">{{ map.formatted_accuracy }}</td>
+                        <td class="farmability-cell">{{ map.mod_count }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="loading-indicator" style="display: none;">
+            <div class="spinner"></div>
+        </div>
+
+    </div>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html> 
